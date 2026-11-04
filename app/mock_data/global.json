@@ -1,0 +1,9 @@
+{
+  "data": {
+    "active_cryptocurrencies": 14200,
+    "total_market_cap": {"usd": 2490000000000, "inr": 206670000000000},
+    "total_volume": {"usd": 86400000000, "inr": 7171200000000},
+    "market_cap_change_percentage_24h_usd": 1.42,
+    "market_cap_percentage": {"btc": 53.1, "eth": 16.9}
+  }
+}
