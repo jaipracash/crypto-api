@@ -1,0 +1,9 @@
+{
+  "coins": [
+    {"item":{"id":"bitcoin","symbol":"btc","name":"Bitcoin","large":"https://assets.coingecko.com/coins/images/1/large/bitcoin.png","market_cap_rank":1,"price_btc":1.0}},
+    {"item":{"id":"ethereum","symbol":"eth","name":"Ethereum","large":"https://assets.coingecko.com/coins/images/279/large/ethereum.png","market_cap_rank":2,"price_btc":0.0521}},
+    {"item":{"id":"solana","symbol":"sol","name":"Solana","large":"https://assets.coingecko.com/coins/images/4128/large/solana.png","market_cap_rank":5,"price_btc":0.00265}},
+    {"item":{"id":"chainlink","symbol":"link","name":"Chainlink","large":"https://assets.coingecko.com/coins/images/877/large/chainlink-new-logo.png","market_cap_rank":15,"price_btc":0.00025}},
+    {"item":{"id":"dogecoin","symbol":"doge","name":"Dogecoin","large":"https://assets.coingecko.com/coins/images/5/large/dogecoin.png","market_cap_rank":8,"price_btc":0.00000243}}
+  ]
+}
