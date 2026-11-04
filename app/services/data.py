@@ -86,8 +86,17 @@ def coin_item(raw: dict[str, Any], is_watchlisted: bool = False) -> dict[str, An
         "price": number(raw.get("current_price", raw.get("price"))),
         "market_cap": number(raw.get("market_cap")),
         "volume_24h": number(raw.get("total_volume", raw.get("volume_24h"))),
+        "change_1h_pct": number(
+            raw.get("price_change_percentage_1h_in_currency", raw.get("change_1h_pct"))
+        ),
         "change_24h_pct": number(
             raw.get("price_change_percentage_24h", raw.get("change_24h_pct"))
+        ),
+        "change_7d_pct": number(
+            raw.get("price_change_percentage_7d_in_currency", raw.get("change_7d_pct"))
+        ),
+        "change_30d_pct": number(
+            raw.get("price_change_percentage_30d_in_currency", raw.get("change_30d_pct"))
         ),
         "circulating_supply": number(raw.get("circulating_supply")),
         "total_supply": number(raw.get("total_supply")),

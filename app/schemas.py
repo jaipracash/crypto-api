@@ -32,7 +32,10 @@ class CoinItem(APIModel):
     price: float | None = None
     market_cap: float | None = None
     volume_24h: float | None = None
+    change_1h_pct: float | None = None
     change_24h_pct: float | None = None
+    change_7d_pct: float | None = None
+    change_30d_pct: float | None = None
     circulating_supply: float | None = None
     total_supply: float | None = None
     max_supply: float | None = None
@@ -105,7 +108,18 @@ class TrendingItem(APIModel):
     name: str
     image: str | None = None
     rank: int | None = None
-    price_btc: float | None = None
+    price: float | None = None
+    market_cap: float | None = None
+    volume_24h: float | None = None
+    change_1h_pct: float | None = None
+    change_24h_pct: float | None = None
+    change_7d_pct: float | None = None
+    change_30d_pct: float | None = None
+    circulating_supply: float | None = None
+    total_supply: float | None = None
+    max_supply: float | None = None
+    sparkline_7d: list[float] = Field(default_factory=list)
+    is_watchlisted: bool = False
 
 
 class TrendingResponse(APIModel):

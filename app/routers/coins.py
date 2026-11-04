@@ -52,14 +52,23 @@ async def list_coins(
     request: Request,
     response: Response,
     page: int = Query(1, ge=1),
-    per_page: int = Query(50, ge=1, le=100),
+    per_page: int = Query(50, ge=1, le=250),
     order: CoinOrder = Query("market_cap_desc"),
     currency: Currency = Query("usd"),
+    category: str | None = Query(None, min_length=1, max_length=100),
     x_device_id: str | None = Header(default=None, alias="X-Device-ID"),
 ) -> dict[str, Any]:
     """Return a paginated, sortable market list."""
     device_id = _device(x_device_id)
-    key = _key("coins", page=page, per_page=per_page, order=order, currency=currency)
+    key = _key(
+        "coins",
+        page=page,
+        per_page=per_page,
+        order=order,
+        currency=currency,
+        category=category,
+    )
+    upstream_per_page = min(per_page + 1, 250)
     result = await provide(
         cache_key=key,
         ttl=60,
@@ -69,10 +78,11 @@ async def list_coins(
             {
                 "vs_currency": currency,
                 "order": order,
-                "per_page": per_page + 1,
+                "per_page": upstream_per_page,
                 "page": page,
                 "sparkline": "true",
-                "price_change_percentage": "24h",
+                "price_change_percentage": "1h,24h,7d,30d",
+                **({"category": category} if category is not None else {}),
             },
         ),
         mock=lambda: read_mock("coins.json"),

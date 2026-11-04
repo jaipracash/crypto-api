@@ -58,33 +58,52 @@ async def trending(
     request: Request,
     response: Response,
 ) -> dict[str, Any]:
-    """Return CoinGecko's current trending coins."""
+    """Return trending coins enriched with current market data."""
+
+    async def fetch(client: CoinGeckoClient) -> dict[str, Any]:
+        trending_data = await client.get("/search/trending")
+        entries = trending_data.get("coins", [])
+        candidates = [
+            entry.get("item", entry)
+            for entry in entries
+            if entry.get("item", entry).get("id")
+        ]
+        if not candidates:
+            return {"items": []}
+        ids = [str(item["id"]) for item in candidates]
+        market_rows = await client.get(
+            "/coins/markets",
+            {
+                "vs_currency": "usd",
+                "ids": ",".join(ids),
+                "order": "market_cap_desc",
+                "per_page": len(ids),
+                "page": 1,
+                "sparkline": "true",
+                "price_change_percentage": "1h,24h,7d,30d",
+            },
+        )
+        by_id = {str(row.get("id")): row for row in market_rows}
+        return {
+            "items": [
+                coin_item(row)
+                for item in candidates
+                if (row := by_id.get(str(item["id"]))) is not None
+            ]
+        }
+
     result = await provide(
         cache_key=_key("trending"),
         ttl=300,
         client=_client(request),
-        fetch=lambda client: client.get("/search/trending"),
+        fetch=fetch,
         mock=lambda: read_mock("trending.json"),
     )
-    rows = result.value.get("coins", [])
-    items = []
-    for entry in rows:
-        item = entry.get("item", entry)
-        items.append(
-            {
-                "id": str(item.get("id", "")),
-                "symbol": str(item.get("symbol", "")).lower(),
-                "name": str(item.get("name", "")),
-                "image": item.get("large") or item.get("thumb") or item.get("image"),
-                "rank": item.get("market_cap_rank", item.get("rank")),
-                "price_btc": number(item.get("price_btc")),
-            }
-        )
     response.headers["X-Data-Source"] = result.source
-    return {"items": items}
+    return result.value
 
 
-@router.get("/movers", response_model=MoversResponse)
+@router.get("/movers", response_model=MoversResponse, deprecated=True)
 async def movers(
     request: Request,
     response: Response,
