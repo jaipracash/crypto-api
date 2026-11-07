@@ -27,6 +27,76 @@ def _mock_starting_price(coin_id: str, currency: str) -> float | None:
     return number(row.get("current_price"))
 
 
+def _mock_starting_prices(currency: str) -> dict[str, float]:
+    rows: list[dict[str, Any]] = read_mock("coins.json")
+    prices: dict[str, float] = {}
+    for row in rows:
+        coin_id = str(row.get("id", ""))
+        market_row = scale_mock_market(row) if currency == "inr" else row
+        price = number(market_row.get("current_price"))
+        if coin_id and price is not None and price > 0:
+            prices[coin_id] = price
+    return prices
+
+
+@router.websocket("/ws/prices")
+async def simulated_all_prices_stream(websocket: WebSocket) -> None:
+    """Stream simulated price updates for every coin in the market fixture."""
+    currency = websocket.query_params.get("currency", "usd").lower()
+    if currency not in {"usd", "inr"}:
+        await websocket.close(code=1008, reason="Invalid currency")
+        return
+    try:
+        prices = _mock_starting_prices(currency)
+    except (OSError, ValueError, TypeError):
+        await websocket.close(code=1011, reason="Price fixture is unavailable")
+        return
+    if not prices:
+        await websocket.close(code=1011, reason="Price fixture is empty")
+        return
+
+    await websocket.accept()
+    rng = random.Random()
+    try:
+        await websocket.send_json(
+            {
+                "type": "snapshot",
+                "currency": currency,
+                "prices": [
+                    {"coin_id": coin_id, "price": price}
+                    for coin_id, price in prices.items()
+                ],
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "source": "mock",
+            }
+        )
+        while True:
+            await asyncio.sleep(PRICE_UPDATE_SECONDS)
+            updates = []
+            for coin_id, price in prices.items():
+                change_pct = rng.uniform(-MAX_STEP_PERCENT, MAX_STEP_PERCENT)
+                price *= 1 + change_pct / 100
+                prices[coin_id] = price
+                updates.append(
+                    {
+                        "coin_id": coin_id,
+                        "price": round(price, 10),
+                        "change_pct": round(change_pct, 6),
+                    }
+                )
+            await websocket.send_json(
+                {
+                    "type": "price_update",
+                    "currency": currency,
+                    "updates": updates,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "source": "mock",
+                }
+            )
+    except WebSocketDisconnect:
+        return
+
+
 @router.websocket("/ws/prices/{coin_id}")
 async def simulated_price_stream(websocket: WebSocket, coin_id: str) -> None:
     """Stream clearly marked simulated price updates for a known mock coin.
