@@ -90,6 +90,22 @@ Deprecated; use `/api/coins` and filter/sort client-side. `limit` must be betwee
 curl 'http://localhost:8000/api/market/movers?limit=5&currency=usd'
 ```
 
+### Simulated WebSocket price stream
+
+For the interview demo, the backend exposes a mock-only WebSocket for the coins
+in the checked-in market fixture. It sends a `snapshot` first, then a small,
+bounded random price update every two seconds. Every message has `source: "mock"`;
+these updates are simulated and are not CoinGecko live prices. The normal REST
+coin details and chart endpoints remain the source of market snapshots/history.
+
+```text
+ws://localhost:8000/api/ws/prices/bitcoin?currency=usd
+```
+
+Use `wss://` when the API is deployed behind HTTPS. Supported currencies are
+`usd` and `inr`. Unknown coins and invalid parameters are rejected with WebSocket
+close code `1008`.
+
 ### Get a device watchlist
 
 ```bash
