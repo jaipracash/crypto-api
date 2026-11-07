@@ -161,9 +161,9 @@ async def provide(
     ttl: int,
     client: CoinGeckoClient,
     fetch: Callable[[CoinGeckoClient], Awaitable[Any]],
-    mock: Callable[[], Any],
+    mock: Callable[[], Any] | None = None,
 ) -> DataResult:
-    """Apply fresh-cache, live, stale-cache, then mock fallback ordering."""
+    """Apply fresh-cache, live, stale-cache, then optional mock fallback ordering."""
     cached = response_cache.get_fresh(cache_key)
     if cached is not None:
         return DataResult(cached, "cache")
@@ -174,7 +174,7 @@ async def provide(
         return DataResult(value, "live")
     except UpstreamFailure as exc:
         upstream_error = exc
-        logger.warning("Using fallback after upstream error %s: %s", exc.code, exc.message)
+        logger.warning("Upstream request failed %s: %s", exc.code, exc.message)
     except (TypeError, ValueError, KeyError) as exc:
         logger.exception("Could not normalize upstream response")
         upstream_error = UpstreamFailure("UPSTREAM_ERROR", "CoinGecko returned invalid data.")
@@ -182,10 +182,11 @@ async def provide(
     stale = response_cache.get_stale(cache_key)
     if stale is not None:
         return DataResult(stale, "cache")
-    try:
-        return DataResult(mock(), "mock")
-    except (OSError, ValueError, KeyError, TypeError):
-        logger.exception("Mock fallback data could not be loaded")
+    if mock is not None:
+        try:
+            return DataResult(mock(), "mock")
+        except (OSError, ValueError, KeyError, TypeError):
+            logger.exception("Mock fallback data could not be loaded")
     if upstream_error:
         raise upstream_error
     raise UpstreamFailure("UPSTREAM_ERROR", "No market data source is available.")

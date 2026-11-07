@@ -74,6 +74,8 @@ class ChartResponse(APIModel):
     days: int
     currency: Currency
     prices: list[tuple[int, float]]
+    market_caps: list[tuple[int, float]] = Field(default_factory=list)
+    ohlc: list[tuple[int, float, float, float, float]] = Field(default_factory=list)
     min: float | None = None
     max: float | None = None
     change_pct: float | None = None

@@ -1,6 +1,7 @@
 """Coin list, details, chart, and search endpoints."""
 
 import json
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Header, Path, Query, Request, Response
@@ -15,7 +16,7 @@ from app.schemas import (
     Currency,
     SearchResponse,
 )
-from app.services.coingecko import CoinGeckoClient
+from app.services.coingecko import CoinGeckoClient, UpstreamFailure
 from app.services.data import (
     coin_detail,
     coin_item,
@@ -28,6 +29,7 @@ from app.services.data import (
 
 router = APIRouter(tags=["coins"])
 CHART_DAYS = {1, 7, 30, 90, 365}
+logger = logging.getLogger(__name__)
 
 
 def _client(request: Request) -> CoinGeckoClient:
@@ -107,20 +109,6 @@ async def list_coins(
         "data_source": result.source,
         "items": items,
     }
-
-
-def _mock_chart(coin_id: str) -> dict[str, Any]:
-    """Scale the sample chart to a known mock coin's current price."""
-    rows = read_mock("coins.json")
-    coin = next((row for row in rows if row["id"] == coin_id), None)
-    if coin is None:
-        from app.services.coingecko import UpstreamFailure
-
-        raise UpstreamFailure("COIN_NOT_FOUND", "No chart data is available for this coin.", 404)
-    chart = read_mock("chart.json")
-    points = chart["prices"]
-    scale = float(coin["current_price"]) / float(points[-1][1])
-    return {"prices": [[timestamp, price * scale] for timestamp, price in points]}
 
 
 def _sort_mock_rows(rows: list[dict[str, Any]], order: CoinOrder) -> list[dict[str, Any]]:
@@ -230,16 +218,38 @@ async def get_coin_chart(
         from app.services.coingecko import UpstreamFailure
 
         raise UpstreamFailure("INVALID_PARAMS", "days must be one of 1, 7, 30, 90, or 365.", 400)
-    key = _key("chart", coin_id=coin_id, days=days, currency=currency)
+    key = _key(
+        "chart",
+        coin_id=coin_id,
+        days=days,
+        currency=currency,
+        native_ohlc=True,
+    )
+    async def fetch_chart(client: CoinGeckoClient) -> dict[str, Any]:
+        chart = await client.get(
+            f"/coins/{coin_id}/market_chart",
+            {"vs_currency": currency, "days": days},
+        )
+        try:
+            chart["ohlc"] = await client.get(
+                f"/coins/{coin_id}/ohlc",
+                {"vs_currency": currency, "days": days},
+            )
+        except UpstreamFailure as error:
+            logger.warning(
+                "Native OHLC unavailable for %s (%s days): %s",
+                coin_id,
+                days,
+                error.code,
+            )
+            chart["ohlc"] = []
+        return chart
+
     result = await provide(
         cache_key=key,
         ttl=300,
         client=_client(request),
-        fetch=lambda client: client.get(
-            f"/coins/{coin_id}/market_chart",
-            {"vs_currency": currency, "days": days},
-        ),
-        mock=lambda: _mock_chart(coin_id),
+        fetch=fetch_chart,
     )
     points = result.value.get("prices", [])
     prices: list[tuple[int, float]] = []
@@ -247,11 +257,40 @@ async def get_coin_chart(
         if isinstance(point, list) and len(point) >= 2:
             timestamp, price = integer(point[0]), number(point[1])
             if timestamp is not None and price is not None:
-                prices.append((timestamp, price * (83.0 if currency == "inr" and result.source == "mock" else 1.0)))
-    if not prices and result.source == "mock":
-        from app.services.coingecko import UpstreamFailure
-
-        raise UpstreamFailure("COIN_NOT_FOUND", "No chart data is available for this coin.", 404)
+                prices.append((timestamp, price))
+    raw_market_caps = result.value.get("market_caps", [])
+    market_caps: list[tuple[int, float]] = []
+    for point in raw_market_caps:
+        if isinstance(point, list) and len(point) >= 2:
+            timestamp, market_cap = integer(point[0]), number(point[1])
+            if timestamp is not None and market_cap is not None:
+                market_caps.append(
+                    (
+                        timestamp,
+                        market_cap,
+                    )
+                )
+    ohlc: list[tuple[int, float, float, float, float]] = []
+    for point in result.value.get("ohlc", []):
+        if isinstance(point, list) and len(point) >= 5:
+            timestamp = integer(point[0])
+            open_price, high, low, close = [number(point[index]) for index in range(1, 5)]
+            if (
+                timestamp is not None
+                and open_price is not None
+                and high is not None
+                and low is not None
+                and close is not None
+            ):
+                ohlc.append(
+                    (
+                        timestamp,
+                        open_price,
+                        high,
+                        low,
+                        close,
+                    )
+                )
     values = [price for _, price in prices]
     change_pct = ((values[-1] - values[0]) / values[0] * 100) if len(values) > 1 and values[0] else None
     response.headers["X-Data-Source"] = result.source
@@ -260,6 +299,8 @@ async def get_coin_chart(
         "days": days,
         "currency": currency,
         "prices": prices,
+        "market_caps": market_caps,
+        "ohlc": ohlc,
         "min": min(values) if values else None,
         "max": max(values) if values else None,
         "change_pct": change_pct,
