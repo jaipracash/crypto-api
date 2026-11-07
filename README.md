@@ -15,8 +15,11 @@ cp .env.example .env
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-Set `COINGECKO_API_KEY` in `.env` to use an optional CoinGecko Demo API key.
-`COINGECKO_BASE_URL`, `CORS_ORIGINS`, and `DATABASE_PATH` can also be configured.
+For the Demo API, set `COINGECKO_API_PLAN=demo` and `COINGECKO_API_KEY`. For a
+paid CoinGecko plan, set `COINGECKO_API_PLAN=pro`, provide your Pro key in
+`COINGECKO_API_KEY`, and set `COINGECKO_BASE_URL=https://pro-api.coingecko.com/api/v3`.
+The backend selects the matching API key header. `CORS_ORIGINS` and
+`DATABASE_PATH` can also be configured.
 The API documentation is available at `http://localhost:8000/docs`.
 
 For Flutter, use `http://10.0.2.2:8000` from the Android emulator. A real device
@@ -54,6 +57,10 @@ curl 'http://localhost:8000/api/coins/bitcoin?currency=usd'
 ### Price chart
 
 `days` must be one of `1`, `7`, `30`, `90`, or `365`.
+If CoinGecko has no chart data available (or the upstream request is
+unavailable/rate-limited), this endpoint returns an empty chart with HTTP 200
+and `X-Data-Source: no-data`. The app can render its chart empty state instead
+of showing fixture points or treating a missing history as a server error.
 
 ```bash
 curl 'http://localhost:8000/api/coins/bitcoin/chart?days=7&currency=usd'
@@ -92,13 +99,15 @@ curl 'http://localhost:8000/api/market/movers?limit=5&currency=usd'
 
 ### Simulated WebSocket price stream
 
-For the interview demo, the backend exposes a mock-only WebSocket for the coins
-in the checked-in market fixture. It sends a `snapshot` first, then a small,
-bounded random price update every two seconds. Every message has `source: "mock"`;
-these updates are simulated and are not CoinGecko live prices. The normal REST
-coin details and chart endpoints remain the source of market snapshots/history.
+For the interview demo, the backend exposes mock-only WebSockets for coins in
+the checked-in market fixture. The all-coins endpoint sends one `snapshot` with
+all fixture coins first, then a small, bounded random update for each coin every
+two seconds. Every message has `source: "mock"`; these updates are simulated and
+are not CoinGecko live prices. The normal REST coin details and chart endpoints
+remain the source of market snapshots/history.
 
 ```text
+ws://localhost:8000/api/ws/prices?currency=usd
 ws://localhost:8000/api/ws/prices/bitcoin?currency=usd
 ```
 

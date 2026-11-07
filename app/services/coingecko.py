@@ -27,7 +27,12 @@ class CoinGeckoClient:
     def __init__(self) -> None:
         headers = {"accept": "application/json"}
         if settings.coingecko_api_key:
-            headers["x-cg-demo-api-key"] = settings.coingecko_api_key
+            key_header = (
+                "x-cg-pro-api-key"
+                if settings.coingecko_api_plan == "pro"
+                else "x-cg-demo-api-key"
+            )
+            headers[key_header] = settings.coingecko_api_key
         self._client = httpx.AsyncClient(
             base_url=settings.coingecko_base_url,
             headers=headers,

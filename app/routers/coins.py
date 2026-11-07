@@ -245,12 +245,36 @@ async def get_coin_chart(
             chart["ohlc"] = []
         return chart
 
-    result = await provide(
-        cache_key=key,
-        ttl=300,
-        client=_client(request),
-        fetch=fetch_chart,
-    )
+    try:
+        result = await provide(
+            cache_key=key,
+            ttl=300,
+            client=_client(request),
+            fetch=fetch_chart,
+        )
+    except UpstreamFailure as error:
+        # Preserve invalid-coin errors, but let the app render its chart empty
+        # state when historical data is unavailable from the provider.
+        if error.code == "COIN_NOT_FOUND":
+            raise
+        logger.info(
+            "Chart data unavailable for %s (%s days): %s",
+            coin_id,
+            days,
+            error.code,
+        )
+        response.headers["X-Data-Source"] = "no-data"
+        return {
+            "coin_id": coin_id,
+            "days": days,
+            "currency": currency,
+            "prices": [],
+            "market_caps": [],
+            "ohlc": [],
+            "min": None,
+            "max": None,
+            "change_pct": None,
+        }
     points = result.value.get("prices", [])
     prices: list[tuple[int, float]] = []
     for point in points:
