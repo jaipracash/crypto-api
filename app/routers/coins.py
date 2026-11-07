@@ -275,6 +275,22 @@ async def get_coin_chart(
             "max": None,
             "change_pct": None,
         }
+    except Exception:
+        # An unexpected upstream/transport failure should not prevent the chart
+        # screen from rendering its empty-data state. Keep the details in logs.
+        logger.exception("Unexpected chart data failure for %s (%s days)", coin_id, days)
+        response.headers["X-Data-Source"] = "no-data"
+        return {
+            "coin_id": coin_id,
+            "days": days,
+            "currency": currency,
+            "prices": [],
+            "market_caps": [],
+            "ohlc": [],
+            "min": None,
+            "max": None,
+            "change_pct": None,
+        }
     points = result.value.get("prices", [])
     prices: list[tuple[int, float]] = []
     for point in points:
