@@ -12,7 +12,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app import db
 from app.config import settings
-from app.routers import coins, market, watchlist
+from app.routers import coins, market, prices, watchlist
 from app.services.coingecko import CoinGeckoClient, UpstreamFailure
 
 logging.basicConfig(level=logging.INFO)
@@ -45,6 +45,7 @@ app.add_middleware(
 )
 app.include_router(coins.router, prefix="/api")
 app.include_router(market.router, prefix="/api")
+app.include_router(prices.router, prefix="/api")
 app.include_router(watchlist.router, prefix="/api")
 
 

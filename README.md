@@ -38,10 +38,11 @@ curl http://localhost:8000/health
 
 ### Coin list
 
-Supports page, per-page (maximum 100), order and currency parameters.
+Supports page, per-page (maximum 250), order, currency and optional CoinGecko
+category parameters. Items include 1h, 24h, 7d and 30d percentage changes.
 
 ```bash
-curl 'http://localhost:8000/api/coins?page=1&per_page=20&order=market_cap_desc&currency=usd'
+curl 'http://localhost:8000/api/coins?page=1&per_page=100&order=market_cap_desc&currency=usd&category=layer-1'
 ```
 
 ### Coin details
@@ -74,17 +75,36 @@ curl 'http://localhost:8000/api/market/global?currency=usd'
 
 ### Trending coins
 
+Returns full coin-item market data for trending assets.
+
 ```bash
 curl http://localhost:8000/api/market/trending
 ```
 
 ### Market movers
 
-`limit` must be between 1 and 50.
+Deprecated; use `/api/coins` and filter/sort client-side. `limit` must be between
+1 and 50.
 
 ```bash
 curl 'http://localhost:8000/api/market/movers?limit=5&currency=usd'
 ```
+
+### Simulated WebSocket price stream
+
+For the interview demo, the backend exposes a mock-only WebSocket for the coins
+in the checked-in market fixture. It sends a `snapshot` first, then a small,
+bounded random price update every two seconds. Every message has `source: "mock"`;
+these updates are simulated and are not CoinGecko live prices. The normal REST
+coin details and chart endpoints remain the source of market snapshots/history.
+
+```text
+ws://localhost:8000/api/ws/prices/bitcoin?currency=usd
+```
+
+Use `wss://` when the API is deployed behind HTTPS. Supported currencies are
+`usd` and `inr`. Unknown coins and invalid parameters are rejected with WebSocket
+close code `1008`.
 
 ### Get a device watchlist
 

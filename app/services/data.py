@@ -86,8 +86,17 @@ def coin_item(raw: dict[str, Any], is_watchlisted: bool = False) -> dict[str, An
         "price": number(raw.get("current_price", raw.get("price"))),
         "market_cap": number(raw.get("market_cap")),
         "volume_24h": number(raw.get("total_volume", raw.get("volume_24h"))),
+        "change_1h_pct": number(
+            raw.get("price_change_percentage_1h_in_currency", raw.get("change_1h_pct"))
+        ),
         "change_24h_pct": number(
             raw.get("price_change_percentage_24h", raw.get("change_24h_pct"))
+        ),
+        "change_7d_pct": number(
+            raw.get("price_change_percentage_7d_in_currency", raw.get("change_7d_pct"))
+        ),
+        "change_30d_pct": number(
+            raw.get("price_change_percentage_30d_in_currency", raw.get("change_30d_pct"))
         ),
         "circulating_supply": number(raw.get("circulating_supply")),
         "total_supply": number(raw.get("total_supply")),
@@ -152,9 +161,9 @@ async def provide(
     ttl: int,
     client: CoinGeckoClient,
     fetch: Callable[[CoinGeckoClient], Awaitable[Any]],
-    mock: Callable[[], Any],
+    mock: Callable[[], Any] | None = None,
 ) -> DataResult:
-    """Apply fresh-cache, live, stale-cache, then mock fallback ordering."""
+    """Apply fresh-cache, live, stale-cache, then optional mock fallback ordering."""
     cached = response_cache.get_fresh(cache_key)
     if cached is not None:
         return DataResult(cached, "cache")
@@ -165,7 +174,7 @@ async def provide(
         return DataResult(value, "live")
     except UpstreamFailure as exc:
         upstream_error = exc
-        logger.warning("Using fallback after upstream error %s: %s", exc.code, exc.message)
+        logger.warning("Upstream request failed %s: %s", exc.code, exc.message)
     except (TypeError, ValueError, KeyError) as exc:
         logger.exception("Could not normalize upstream response")
         upstream_error = UpstreamFailure("UPSTREAM_ERROR", "CoinGecko returned invalid data.")
@@ -173,10 +182,11 @@ async def provide(
     stale = response_cache.get_stale(cache_key)
     if stale is not None:
         return DataResult(stale, "cache")
-    try:
-        return DataResult(mock(), "mock")
-    except (OSError, ValueError, KeyError, TypeError):
-        logger.exception("Mock fallback data could not be loaded")
+    if mock is not None:
+        try:
+            return DataResult(mock(), "mock")
+        except (OSError, ValueError, KeyError, TypeError):
+            logger.exception("Mock fallback data could not be loaded")
     if upstream_error:
         raise upstream_error
     raise UpstreamFailure("UPSTREAM_ERROR", "No market data source is available.")
