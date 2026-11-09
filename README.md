@@ -4,6 +4,33 @@ FastAPI backend for a crypto research mobile app. It uses CoinGecko when availab
 then falls back to in-memory cached data and checked-in mock JSON. Device watchlists
 are persisted in SQLite.
 
+## Technology and design
+
+- **Python** with **FastAPI** and **Uvicorn** for asynchronous REST and WebSocket
+  endpoints.
+- **Pydantic 2** for request validation and typed API response models.
+- **HTTPX** for asynchronous CoinGecko requests, with connection/read timeouts
+  and a retry for network errors.
+- **cachetools** for an in-memory TTL cache with stale-value retention.
+- **SQLite** through Python's built-in `sqlite3` module for per-device
+  watchlists.
+- **python-dotenv** and environment variables for runtime configuration.
+
+Routers in `app/routers/` handle HTTP and WebSocket endpoints. Shared Pydantic
+models are in `app/schemas.py`; `app/services/coingecko.py` owns upstream
+requests; `app/services/data.py` normalizes provider data and applies the cache,
+stale-data, and mock fallback policy. `app/db.py` handles watchlist persistence.
+The application lifespan initializes SQLite and manages the shared CoinGecko
+HTTP client.
+
+### Resume-ready backend summary
+
+Built a FastAPI service that normalizes CoinGecko market data into typed API
+responses, serves market/search/chart/watchlist endpoints, and provides
+resilient live-to-cache-to-mock fallbacks. Persisted installation-scoped
+watchlists in SQLite and exposed data provenance through `X-Data-Source`.
+Added a clearly labeled simulated WebSocket feed for demo purposes.
+
 ## Run locally
 
 ```bash
@@ -19,7 +46,8 @@ For the Demo API, set `COINGECKO_API_PLAN=demo` and `COINGECKO_API_KEY`. For a
 paid CoinGecko plan, set `COINGECKO_API_PLAN=pro`, provide your Pro key in
 `COINGECKO_API_KEY`, and set `COINGECKO_BASE_URL=https://pro-api.coingecko.com/api/v3`.
 The backend selects the matching API key header. `CORS_ORIGINS` and
-`DATABASE_PATH` can also be configured.
+`DATABASE_PATH` can also be configured. Keep API keys in the local `.env` file
+and out of source control; `.env.example` lists supported variables.
 The API documentation is available at `http://localhost:8000/docs`.
 
 For Flutter, use `http://10.0.2.2:8000` from the Android emulator. A real device
@@ -144,3 +172,9 @@ CoinGecko quota is `UPSTREAM_RATE_LIMITED` (429), and other unavailable upstream
 requests are `UPSTREAM_ERROR` (502). Fresh cache is preferred, followed by live
 CoinGecko data, stale cache, and mock JSON. Mock fixtures cover the top 20 coins,
 global market, trending list, and sample charts.
+
+## Testing
+
+No automated backend test suite is currently included in this repository.
+FastAPI's interactive endpoint documentation is available at `/docs` while the
+service is running; `/health` provides a simple process health check.
