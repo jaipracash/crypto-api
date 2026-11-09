@@ -23,14 +23,6 @@ stale-data, and mock fallback policy. `app/db.py` handles watchlist persistence.
 The application lifespan initializes SQLite and manages the shared CoinGecko
 HTTP client.
 
-### Resume-ready backend summary
-
-Built a FastAPI service that normalizes CoinGecko market data into typed API
-responses, serves market/search/chart/watchlist endpoints, and provides
-resilient live-to-cache-to-mock fallbacks. Persisted installation-scoped
-watchlists in SQLite and exposed data provenance through `X-Data-Source`.
-Added a clearly labeled simulated WebSocket feed for demo purposes.
-
 ## Run locally
 
 ```bash
